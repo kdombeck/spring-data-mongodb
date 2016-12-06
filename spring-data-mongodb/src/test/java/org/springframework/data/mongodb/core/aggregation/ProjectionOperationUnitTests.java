@@ -36,6 +36,7 @@ import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.ConditionalOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.DateOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.LiteralOperators;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.RangeOperator;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.SetOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.StringOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.VariableOperators;
@@ -1855,6 +1856,19 @@ public class ProjectionOperationUnitTests {
 				.toDBObject(Aggregation.DEFAULT_CONTEXT);
 
 		assertThat(agg, is(JSON.parse("{ $project : { index: { $indexOfArray: [ \"$items\", 2 ] } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderRangeCorrectly() {
+
+		DBObject agg = project().and(RangeOperator.rangeStartingAt(0L).to("distance").withStepSize(25L)).as("rest_stops")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, isBsonObject().containing("$project.rest_stops.$range.[0]", 0L)
+				.containing("$project.rest_stops.$range.[1]", "$distance").containing("$project.rest_stops.$range.[2]", 25L));
 	}
 
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {

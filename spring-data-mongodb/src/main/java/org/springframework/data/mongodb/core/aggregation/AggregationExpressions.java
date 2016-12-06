@@ -4833,6 +4833,61 @@ public interface AggregationExpressions {
 		}
 	}
 
+	/**
+	 * {@link AggregationExpression} for {@code $range}.
+	 *
+	 * @author Christoph Strobl
+	 */
+	class RangeOperator extends AbstractAggregationExpression {
+
+		private RangeOperator(List<Object> values) {
+			super(values);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$range";
+		}
+
+		public static RangeOperatorBuilder rangeStartingAt(String fieldReference) {
+			return new RangeOperatorBuilder(Fields.field(fieldReference));
+		}
+
+		public static RangeOperatorBuilder rangeStartingAt(AggregationExpression expression) {
+			return new RangeOperatorBuilder(expression);
+		}
+
+		public static RangeOperatorBuilder rangeStartingAt(Long value) {
+			return new RangeOperatorBuilder(value);
+		}
+
+		public RangeOperator withStepSize(Long stepSize) {
+			return new RangeOperator(append(stepSize));
+		}
+
+		public static class RangeOperatorBuilder {
+
+			private final Object startPoint;
+
+			private RangeOperatorBuilder(Object startPoint) {
+				this.startPoint = startPoint;
+			}
+
+			public RangeOperator to(Long index) {
+				return new RangeOperator(Arrays.asList(startPoint, index));
+			}
+
+			public RangeOperator to(AggregationExpression expression) {
+				return new RangeOperator(Arrays.asList(startPoint, expression));
+			}
+
+			public RangeOperator to(String fieldReference) {
+				return new RangeOperator(Arrays.asList(startPoint, Fields.field(fieldReference)));
+			}
+		}
+
+	}
+
 	// ############
 	// LITERAL OPERATORS
 	// ############
