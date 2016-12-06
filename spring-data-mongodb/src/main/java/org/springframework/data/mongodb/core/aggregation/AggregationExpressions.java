@@ -1693,6 +1693,28 @@ public interface AggregationExpressions {
 			private Split createSplit() {
 				return fieldReference != null ? Split.valueOf(fieldReference) : Split.valueOf(expression);
 			}
+
+			/**
+			 * Creates new {@link AggregationExpression} that returns the number of UTF-8 bytes in the associated string
+			 * representation.
+			 *
+			 * @return
+			 */
+			public StrLenBytes length() {
+				return fieldReference != null ? StrLenBytes.stringLengthOf(fieldReference)
+						: StrLenBytes.stringLengthOf(expression);
+			}
+
+			/**
+			 * Creates new {@link AggregationExpression} that returns the number of UTF-8 code points in the associated string
+			 * representation.
+			 *
+			 * @return
+			 */
+			public StrLenCP lengthCP() {
+				return fieldReference != null ? StrLenCP.stringLengthOfCP(fieldReference)
+						: StrLenCP.stringLengthOfCP(expression);
+			}
 		}
 	}
 
@@ -4091,6 +4113,52 @@ public interface AggregationExpressions {
 
 			Assert.notNull(expression, "Expression must not be null!");
 			return new Split(append(expression));
+		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $strLenBytes}.
+	 */
+	class StrLenBytes extends AbstractAggregationExpression {
+
+		private StrLenBytes(Object value) {
+			super(value);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$strLenBytes";
+		}
+
+		public static StrLenBytes stringLengthOf(String fieldReference) {
+			return new StrLenBytes(Fields.field(fieldReference));
+		}
+
+		public static StrLenBytes stringLengthOf(AggregationExpression expression) {
+			return new StrLenBytes(expression);
+		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $strLenCP}.
+	 */
+	class StrLenCP extends AbstractAggregationExpression {
+
+		private StrLenCP(Object value) {
+			super(value);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$strLenCP";
+		}
+
+		public static StrLenCP stringLengthOfCP(String fieldReference) {
+			return new StrLenCP(Fields.field(fieldReference));
+		}
+
+		public static StrLenCP stringLengthOfCP(AggregationExpression expression) {
+			return new StrLenCP(expression);
 		}
 	}
 
