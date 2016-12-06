@@ -1909,6 +1909,18 @@ public interface AggregationExpressions {
 				return usesFieldRef() ? Slice.sliceArrayOf(fieldReference) : Slice.sliceArrayOf(expression);
 			}
 
+			/**
+			 * Creates new {@link AggregationExpressions} that searches the associated array for an occurence of a specified
+			 * value and returns the array index (zero-based) of the first occurence.
+			 *
+			 * @param value must not be {@literal null}.
+			 * @return
+			 */
+			public IndexOfArray indexOf(Object value) {
+				return usesFieldRef() ? IndexOfArray.arrayOf(fieldReference).indexOf(value)
+						: IndexOfArray.arrayOf(expression).indexOf(value);
+			}
+
 			private boolean usesFieldRef() {
 				return fieldReference != null;
 			}
@@ -4751,6 +4763,79 @@ public interface AggregationExpressions {
 			Slice itemCount(int nrElements);
 		}
 	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $indexOfArray}.
+	 *
+	 * @author Christoph Strobl
+	 */
+	class IndexOfArray extends AbstractAggregationExpression {
+
+		private IndexOfArray(List<Object> value) {
+			super(value);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$indexOfArray";
+		}
+
+		/**
+		 * Start creating new {@link IndexOfArray}.
+		 *
+		 * @param fieldReference must not be {@literal null}.
+		 * @return
+		 */
+		public static IndexOfArrayBuilder arrayOf(String fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new IndexOfArrayBuilder(Fields.field(fieldReference));
+		}
+
+		/**
+		 * Start creating new {@link IndexOfArray}.
+		 *
+		 * @param expression must not be {@literal null}.
+		 * @return
+		 */
+		public static IndexOfArrayBuilder arrayOf(AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new IndexOfArrayBuilder(expression);
+		}
+
+		public IndexOfArray within(Range<Long> range) {
+
+			Assert.notNull(range, "Range must not be null!");
+
+			List<Long> rangeValues = new ArrayList<Long>(2);
+			rangeValues.add(range.getLowerBound());
+			if (range.getUpperBound() != null) {
+				rangeValues.add(range.getUpperBound());
+			}
+
+			return new IndexOfArray(append(rangeValues));
+		}
+
+		public static class IndexOfArrayBuilder {
+
+			private final Object targetArray;
+
+			private IndexOfArrayBuilder(Object targetArray) {
+				this.targetArray = targetArray;
+			}
+
+			public IndexOfArray indexOf(Object value) {
+
+				Assert.notNull(value, "Value must not be null!");
+				return new IndexOfArray(Arrays.asList(targetArray, value));
+			}
+		}
+	}
+
+	// ############
+	// LITERAL OPERATORS
+	// ############
 
 	/**
 	 * {@link AggregationExpression} for {@code $literal}.

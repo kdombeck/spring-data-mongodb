@@ -1845,6 +1845,18 @@ public class ProjectionOperationUnitTests {
 		assertThat(agg, is(JSON.parse("{ $project : { yearSubstring: { $substrCP: [ \"$quarter\", 0, 2 ] } } }")));
 	}
 
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderIndexOfArrayCorrectly() {
+
+		DBObject agg = project().and(ArrayOperators.arrayOf("items").indexOf(2)).as("index")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse("{ $project : { index: { $indexOfArray: [ \"$items\", 2 ] } } }")));
+	}
+
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {
 		return (DBObject) fromProjectClause.get(field);
 	}
