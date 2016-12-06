@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Test;
+import org.springframework.data.domain.Range;
 import org.springframework.data.mongodb.core.DBObjectTestUtils;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.ArithmeticOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.ArrayOperators;
@@ -1712,11 +1713,12 @@ public class ProjectionOperationUnitTests {
 	@Test
 	public void shouldRenderIfNullConditionAggregationExpression() {
 
-		DBObject agg = project().and(ConditionalOperators.ifNull(ArrayOperators.arrayOf("array").elementAt(1)).then("a more sophisticated value"))
+		DBObject agg = project().and(
+				ConditionalOperators.ifNull(ArrayOperators.arrayOf("array").elementAt(1)).then("a more sophisticated value"))
 				.as("result").toDBObject(Aggregation.DEFAULT_CONTEXT);
 
-		assertThat(agg,
-				is(JSON.parse("{ $project: { result: { $ifNull: [ { $arrayElemAt: [\"$array\", 1] }, \"a more sophisticated value\" ] } } }")));
+		assertThat(agg, is(JSON.parse(
+				"{ $project: { result: { $ifNull: [ { $arrayElemAt: [\"$array\", 1] }, \"a more sophisticated value\" ] } } }")));
 	}
 
 	/**
@@ -1745,7 +1747,33 @@ public class ProjectionOperationUnitTests {
 		assertThat(agg, is(JSON.parse("{ $project: { result: { $ifNull: [ \"$optional\", \"$never-null\" ] } } }")));
 	}
 
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderIndexOfBytesCorrectly() {
+
+		DBObject agg = project().and(StringOperators.valueOf("item").indexOf("foo")).as("byteLocation")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse("{ $project: { byteLocation: { $indexOfBytes: [ \"$item\", \"foo\" ] } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderIndexOfBytesWithRangeCorrectly() {
+
+		DBObject agg = project().and(StringOperators.valueOf("item").indexOf("foo").within(new Range<Long>(5L, 9L)))
+				.as("byteLocation").toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, isBsonObject().containing("$project.byteLocation.$indexOfBytes.[2]", 5L)
+				.containing("$project.byteLocation.$indexOfBytes.[3]", 9L));
+	}
+
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {
 		return (DBObject) fromProjectClause.get(field);
 	}
+
 }

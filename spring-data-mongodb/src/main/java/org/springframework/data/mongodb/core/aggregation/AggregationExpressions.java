@@ -22,9 +22,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import org.springframework.dao.InvalidDataAccessApiUsageException;
+import org.springframework.data.domain.Range;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Cond.OtherwiseBuilder;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Cond.ThenBuilder;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Filter.AsBuilder;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.IndexOfBytes.SubstringBuilder;
 import org.springframework.data.mongodb.core.aggregation.ExposedFields.ExposedField;
 import org.springframework.data.mongodb.core.aggregation.ExposedFields.FieldReference;
 import org.springframework.data.mongodb.core.query.CriteriaDefinition;
@@ -1563,6 +1565,52 @@ public interface AggregationExpressions {
 			private StrCaseCmp createStrCaseCmp() {
 				return fieldReference != null ? StrCaseCmp.valueOf(fieldReference) : StrCaseCmp.valueOf(expression);
 			}
+
+			/**
+			 * Creates new {@link AggregationExpressions} that takes the associated string representation and searches a
+			 * string for an occurence of a given {@literal substring} and returns the UTF-8 byte index (zero-based) of the
+			 * first occurence.
+			 *
+			 * @param substring must not be {@literal null}.
+			 * @return
+			 */
+			public IndexOfBytes indexOf(String substring) {
+
+				Assert.notNull(substring, "Substring must not be null!");
+				return createIndexOfBytesSubstringBuilder().indexOf(substring);
+			}
+
+			/**
+			 * Creates new {@link AggregationExpressions} that takes the associated string representation and searches a
+			 * string for an occurence of a substring contained in the given {@literal field reference} and returns the UTF-8
+			 * byte index (zero-based) of the first occurence.
+			 *
+			 * @param fieldReference must not be {@literal null}.
+			 * @return
+			 */
+			public IndexOfBytes indexOf(Field fieldReference) {
+
+				Assert.notNull(fieldReference, "FieldReference must not be null!");
+				return createIndexOfBytesSubstringBuilder().indexOf(fieldReference);
+			}
+
+			/**
+			 * Creates new {@link AggregationExpressions} that takes the associated string representation and searches a
+			 * string for an occurence of a substring resulting from the given {@link AggregationExpression} and returns the
+			 * UTF-8 byte index (zero-based) of the first occurence.
+			 *
+			 * @param expression must not be {@literal null}.
+			 * @return
+			 */
+			public IndexOfBytes indexOf(AggregationExpression expression) {
+
+				Assert.notNull(expression, "Expression must not be null!");
+				return createIndexOfBytesSubstringBuilder().indexOf(expression);
+			}
+
+			private IndexOfBytes.SubstringBuilder createIndexOfBytesSubstringBuilder() {
+				return fieldReference != null ? IndexOfBytes.valueOf(fieldReference) : IndexOfBytes.valueOf(expression);
+			}
 		}
 	}
 
@@ -2080,6 +2128,17 @@ public interface AggregationExpressions {
 			clone.put(key, value);
 			return clone;
 
+		}
+
+		protected List<Object> values() {
+
+			if (value instanceof List) {
+				return new ArrayList<Object>((List) value);
+			}
+			if (value instanceof java.util.Map) {
+				return new ArrayList<Object>(((java.util.Map) value).values());
+			}
+			return new ArrayList<Object>(Arrays.asList(value));
 		}
 
 		protected abstract String getMongoMethod();
@@ -3419,6 +3478,10 @@ public interface AggregationExpressions {
 		}
 	}
 
+	// #########################################
+	// STRING OPERATORS
+	// #########################################
+
 	/**
 	 * {@link AggregationExpression} for {@code $concat}.
 	 *
@@ -3711,6 +3774,92 @@ public interface AggregationExpressions {
 			return new StrCaseCmp(append(expression));
 		}
 	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $indexOfBytes}.
+	 *
+	 * @author Christoph Strobl
+	 */
+	class IndexOfBytes extends AbstractAggregationExpression {
+
+		private IndexOfBytes(List<?> value) {
+			super(value);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$indexOfBytes";
+		}
+
+		/**
+		 * Start creating a new {@link IndexOfBytes}.
+		 *
+		 * @param fieldReference must not be {@literal null}.
+		 * @return
+		 */
+		public static SubstringBuilder valueOf(String fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new SubstringBuilder(Fields.field(fieldReference));
+		}
+
+		/**
+		 * Start creating a new {@link IndexOfBytes}.
+		 *
+		 * @param expression must not be {@literal null}.
+		 * @return
+		 */
+		public static SubstringBuilder valueOf(AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new SubstringBuilder(expression);
+		}
+
+		/**
+		 * Optionally define the substring search start and end position.
+		 *
+		 * @param range must not be {@literal null}.
+		 * @return
+		 */
+		public IndexOfBytes within(Range<Long> range) {
+
+			Assert.notNull(range, "Range must not be null!");
+
+			List<Long> rangeValues = new ArrayList<Long>(2);
+			rangeValues.add(range.getLowerBound());
+			if (range.getUpperBound() != null) {
+				rangeValues.add(range.getUpperBound());
+			}
+
+			return new IndexOfBytes(append(rangeValues));
+		}
+
+		public static class SubstringBuilder {
+
+			private final Object stringExpression;
+
+			private SubstringBuilder(Object stringExpression) {
+				this.stringExpression = stringExpression;
+			}
+
+			public IndexOfBytes indexOf(String substring) {
+				return new IndexOfBytes(Arrays.asList(stringExpression, substring));
+			}
+
+			public IndexOfBytes indexOf(AggregationExpression expression) {
+				return new IndexOfBytes(Arrays.asList(stringExpression, expression));
+			}
+
+			public IndexOfBytes indexOf(Field fieldReference) {
+				return new IndexOfBytes(Arrays.asList(stringExpression, fieldReference));
+			}
+		}
+
+	}
+
+	// #########################################
+	// ARRAY OPERATORS
+	// #########################################
 
 	/**
 	 * {@link AggregationExpression} for {@code $arrayElementAt}.
