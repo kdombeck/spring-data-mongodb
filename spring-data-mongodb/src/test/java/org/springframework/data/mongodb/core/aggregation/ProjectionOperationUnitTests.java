@@ -1871,6 +1871,18 @@ public class ProjectionOperationUnitTests {
 				.containing("$project.rest_stops.$range.[1]", "$distance").containing("$project.rest_stops.$range.[2]", 25L));
 	}
 
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderReverseArrayCorrectly() {
+
+		DBObject agg = project().and(ArrayOperators.arrayOf("favorites").reverse()).as("reverseFavorites")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse("{ $project : { reverseFavorites: { $reverseArray: \"$favorites\" } } }")));
+	}
+
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {
 		return (DBObject) fromProjectClause.get(field);
 	}

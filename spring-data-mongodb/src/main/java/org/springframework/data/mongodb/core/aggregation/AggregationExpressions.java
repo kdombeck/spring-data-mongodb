@@ -1921,6 +1921,15 @@ public interface AggregationExpressions {
 						: IndexOfArray.arrayOf(expression).indexOf(value);
 			}
 
+			/**
+			 * Creates new {@link AggregationExpressions} that returns an array with the elements in reverse order.
+			 *
+			 * @return
+			 */
+			public ReverseArray reverse() {
+				return usesFieldRef() ? ReverseArray.reverseArrayOf(fieldReference) : ReverseArray.reverseArrayOf(expression);
+			}
+
 			private boolean usesFieldRef() {
 				return fieldReference != null;
 			}
@@ -4886,6 +4895,29 @@ public interface AggregationExpressions {
 			}
 		}
 
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $reverseArray}.
+	 */
+	class ReverseArray extends AbstractAggregationExpression {
+
+		private ReverseArray(Object value) {
+			super(value);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$reverseArray";
+		}
+
+		public static ReverseArray reverseArrayOf(String fieldReference) {
+			return new ReverseArray(Fields.field(fieldReference));
+		}
+
+		public static ReverseArray reverseArrayOf(AggregationExpression expression) {
+			return new ReverseArray(expression);
+		}
 	}
 
 	// ############
