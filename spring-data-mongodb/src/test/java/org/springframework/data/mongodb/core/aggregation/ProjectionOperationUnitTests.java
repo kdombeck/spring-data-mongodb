@@ -1772,6 +1772,31 @@ public class ProjectionOperationUnitTests {
 				.containing("$project.byteLocation.$indexOfBytes.[3]", 9L));
 	}
 
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderIndexOfCPCorrectly() {
+
+		DBObject agg = project().and(StringOperators.valueOf("item").indexOfCP("foo")).as("cpLocation")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse("{ $project: { cpLocation: { $indexOfCP: [ \"$item\", \"foo\" ] } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderIndexOfCPWithRangeCorrectly() {
+
+		DBObject agg = project().and(StringOperators.valueOf("item").indexOfCP("foo").within(new Range<Long>(5L, 9L)))
+				.as("cpLocation").toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, isBsonObject().containing("$project.cpLocation.$indexOfCP.[2]", 5L)
+				.containing("$project.cpLocation.$indexOfCP.[3]", 9L));
+	}
+
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {
 		return (DBObject) fromProjectClause.get(field);
 	}
