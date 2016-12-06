@@ -1715,6 +1715,33 @@ public interface AggregationExpressions {
 				return fieldReference != null ? StrLenCP.stringLengthOfCP(fieldReference)
 						: StrLenCP.stringLengthOfCP(expression);
 			}
+
+			/**
+			 * Creates new {@link AggregationExpressions} that takes the associated string representation and returns a
+			 * substring starting at a specified code point index position.
+			 *
+			 * @param codePointStart
+			 * @return
+			 */
+			public SubstrCP substringCP(int codePointStart) {
+				return substringCP(codePointStart, -1);
+			}
+
+			/**
+			 * Creates new {@link AggregationExpressions} that takes the associated string representation and returns a
+			 * substring starting at a specified code point index position including the specified number of code points.
+			 *
+			 * @param codePointStart
+			 * @param nrOfCodePoints
+			 * @return
+			 */
+			public SubstrCP substringCP(int codePointStart, int nrOfCodePoints) {
+				return createSubstrCP().substringCP(codePointStart, nrOfCodePoints);
+			}
+
+			private SubstrCP createSubstrCP() {
+				return fieldReference != null ? SubstrCP.valueOf(fieldReference) : SubstrCP.valueOf(expression);
+			}
 		}
 	}
 
@@ -4159,6 +4186,55 @@ public interface AggregationExpressions {
 
 		public static StrLenCP stringLengthOfCP(AggregationExpression expression) {
 			return new StrLenCP(expression);
+		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $substrCP}.
+	 *
+	 * @author Christoph Strobl
+	 */
+	class SubstrCP extends AbstractAggregationExpression {
+
+		private SubstrCP(List<?> value) {
+			super(value);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$substrCP";
+		}
+
+		/**
+		 * Creates new {@link SubstrCP}.
+		 *
+		 * @param fieldReference must not be {@literal null}.
+		 * @return
+		 */
+		public static SubstrCP valueOf(String fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new SubstrCP(asFields(fieldReference));
+		}
+
+		/**
+		 * Creates new {@link SubstrCP}.
+		 *
+		 * @param expression must not be {@literal null}.
+		 * @return
+		 */
+		public static SubstrCP valueOf(AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new SubstrCP(Collections.singletonList(expression));
+		}
+
+		public SubstrCP substringCP(int start) {
+			return substringCP(start, -1);
+		}
+
+		public SubstrCP substringCP(int start, int nrOfChars) {
+			return new SubstrCP(append(Arrays.asList(start, nrOfChars)));
 		}
 	}
 

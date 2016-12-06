@@ -1815,7 +1815,7 @@ public class ProjectionOperationUnitTests {
 	@Test
 	public void shouldRenderStrLenBytesCorrectly() {
 
-		DBObject agg = project().and(StringOperators.valueOf("$name").length()).as("length")
+		DBObject agg = project().and(StringOperators.valueOf("name").length()).as("length")
 				.toDBObject(Aggregation.DEFAULT_CONTEXT);
 
 		assertThat(agg, is(JSON.parse("{ $project : { \"length\": { $strLenBytes: \"$name\" } } }")));
@@ -1827,10 +1827,22 @@ public class ProjectionOperationUnitTests {
 	@Test
 	public void shouldRenderStrLenCPCorrectly() {
 
-		DBObject agg = project().and(StringOperators.valueOf("$name").lengthCP()).as("length")
+		DBObject agg = project().and(StringOperators.valueOf("name").lengthCP()).as("length")
 				.toDBObject(Aggregation.DEFAULT_CONTEXT);
 
 		assertThat(agg, is(JSON.parse("{ $project : { \"length\": { $strLenCP: \"$name\" } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderSubstrCPCorrectly() {
+
+		DBObject agg = project().and(StringOperators.valueOf("quarter").substringCP(0, 2)).as("yearSubstring")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse("{ $project : { yearSubstring: { $substrCP: [ \"$quarter\", 0, 2 ] } } }")));
 	}
 
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {
