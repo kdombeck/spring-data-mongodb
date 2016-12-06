@@ -1797,6 +1797,18 @@ public class ProjectionOperationUnitTests {
 				.containing("$project.cpLocation.$indexOfCP.[3]", 9L));
 	}
 
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderSplitCorrectly() {
+
+		DBObject agg = project().and(StringOperators.valueOf("city").split(", ")).as("city_state")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse("{ $project : { city_state : { $split: [\"$city\", \", \"] }} }")));
+	}
+
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {
 		return (DBObject) fromProjectClause.get(field);
 	}

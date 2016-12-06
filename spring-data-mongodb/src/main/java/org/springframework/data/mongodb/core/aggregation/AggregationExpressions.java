@@ -1656,6 +1656,43 @@ public interface AggregationExpressions {
 			private IndexOfCP.SubstringBuilder createIndexOfCPSubstringBuilder() {
 				return fieldReference != null ? IndexOfCP.valueOf(fieldReference) : IndexOfCP.valueOf(expression);
 			}
+
+			/**
+			 * Creates new {@link AggregationExpression} that divides the associated string representation into an array of
+			 * substrings based on the given delimiter.
+			 *
+			 * @param delimiter must not be {@literal null}.
+			 * @return
+			 */
+			public Split split(String delimiter) {
+				return createSplit().split(delimiter);
+			}
+
+			/**
+			 * Creates new {@link AggregationExpression} that divides the associated string representation into an array of
+			 * substrings based on the delimiter resulting from the referenced field..
+			 *
+			 * @param fieldReference must not be {@literal null}.
+			 * @return
+			 */
+			public Split split(Field fieldReference) {
+				return createSplit().split(fieldReference);
+			}
+
+			/**
+			 * Creates new {@link AggregationExpression} that divides the associated string representation into an array of
+			 * substrings based on a delimiter resulting from the given {@link AggregationExpression}.
+			 *
+			 * @param expression must not be {@literal null}.
+			 * @return
+			 */
+			public Split split(AggregationExpression expression) {
+				return createSplit().split(expression);
+			}
+
+			private Split createSplit() {
+				return fieldReference != null ? Split.valueOf(fieldReference) : Split.valueOf(expression);
+			}
 		}
 	}
 
@@ -3979,6 +4016,81 @@ public interface AggregationExpressions {
 			public IndexOfCP indexOf(Field fieldReference) {
 				return new IndexOfCP(Arrays.asList(stringExpression, fieldReference));
 			}
+		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $split}.
+	 */
+	class Split extends AbstractAggregationExpression {
+
+		private Split(List<?> values) {
+			super(values);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$split";
+		}
+
+		/**
+		 * Start creating a new {@link Split}.
+		 *
+		 * @param fieldReference must not be {@literal null}.
+		 * @return
+		 */
+		public static Split valueOf(String fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new Split(asFields(fieldReference));
+		}
+
+		/**
+		 * Start creating a new {@link Split}.
+		 *
+		 * @param expression must not be {@literal null}.
+		 * @return
+		 */
+		public static Split valueOf(AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new Split(Collections.singletonList(expression));
+		}
+
+		/**
+		 * Use given {@link String} as deliminator
+		 *
+		 * @param deliminator must not be {@literal null}.
+		 * @return
+		 */
+		public Split split(String deliminator) {
+
+			Assert.notNull(deliminator, "Deliminator must not be null!");
+			return new Split(append(deliminator));
+		}
+
+		/**
+		 * Usge value of referenced field as deliminator.
+		 *
+		 * @param fieldReference must not be {@literal null}.
+		 * @return
+		 */
+		public Split split(Field fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new Split(append(fieldReference));
+		}
+
+		/**
+		 * Use value resulting from {@link AggregationExpression} as deliminator.
+		 *
+		 * @param expression must not be {@literal null}.
+		 * @return
+		 */
+		public Split split(AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new Split(append(expression));
 		}
 	}
 
