@@ -1931,11 +1931,24 @@ public class ProjectionOperationUnitTests {
 		AggregationExpression elemAt1 = ArrayOperators.arrayOf("matrix").elementAt(1);
 		AggregationExpression elemAt2 = ArrayOperators.arrayOf("matrix").elementAt(2);
 
-		DBObject agg = project().and(ArrayOperators.arrayOf(elemAt0).zipWith(elemAt1, elemAt2).useLongestLength().defaultTo(new Object[]{1,2})).as("transposed")
-				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+		DBObject agg = project().and(
+				ArrayOperators.arrayOf(elemAt0).zipWith(elemAt1, elemAt2).useLongestLength().defaultTo(new Object[] { 1, 2 }))
+				.as("transposed").toDBObject(Aggregation.DEFAULT_CONTEXT);
 
 		assertThat(agg, is(JSON.parse(
 				"{ $project : {  transposed: { $zip: { inputs: [ { $arrayElemAt: [ \"$matrix\", 0 ] }, { $arrayElemAt: [ \"$matrix\", 1 ] }, { $arrayElemAt: [ \"$matrix\", 2 ] } ], useLongestLength : true, defaults: [1,2] } } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderInCorrectly() {
+
+		DBObject agg = project().and(ArrayOperators.arrayOf("in_stock").containsValue("bananas")).as("has_bananas")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse("{ $project : { has_bananas : { $in : [\"bananas\", \"$in_stock\" ] } } }")));
 	}
 
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {

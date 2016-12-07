@@ -1978,6 +1978,17 @@ public interface AggregationExpressions {
 				return (usesFieldRef() ? Zip.arrayOf(fieldReference) : Zip.arrayOf(expression)).zip(arrays);
 			}
 
+			/**
+			 * Creates new {@link AggregationExpressions} that returns a boolean indicating whether a specified value is in
+			 * the associcated array.
+			 *
+			 * @param value must not be {@literal null}.
+			 * @return
+			 */
+			public In containsValue(Object value) {
+				return (usesFieldRef() ? In.arrayOf(fieldReference) : In.arrayOf(expression)).containsValue(value);
+			}
+
 			public interface ReduceInitialValueBuilder {
 				Reduce startingWith(Object initialValue);
 			}
@@ -2339,7 +2350,8 @@ public interface AggregationExpressions {
 			if (!(this.value instanceof java.util.Map)) {
 				throw new IllegalArgumentException("o_O");
 			}
-			java.util.Map<String, Object> clone = new LinkedHashMap<String, Object>((java.util.Map<String, Object>) this.value);
+			java.util.Map<String, Object> clone = new LinkedHashMap<String, Object>(
+					(java.util.Map<String, Object>) this.value);
 			clone.put(key, value);
 			return clone;
 
@@ -5328,9 +5340,9 @@ public interface AggregationExpressions {
 			}
 
 			/**
-			 * Creates new {@link Zip} that transposes an array of input arrays so that the first element
-			 * of the output array would be an array containing, the first element of the first input array, the first element
-			 * of the second input array, etc
+			 * Creates new {@link Zip} that transposes an array of input arrays so that the first element of the output array
+			 * would be an array containing, the first element of the first input array, the first element of the second input
+			 * array, etc
 			 *
 			 * @param arrays arrays to zip the referenced one with. must not be {@literal null}.
 			 * @return
@@ -5350,6 +5362,52 @@ public interface AggregationExpressions {
 				return new Zip(Collections.<String, Object> singletonMap("inputs", sourceArrays));
 			}
 		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $in}.
+	 */
+	class In extends AbstractAggregationExpression {
+
+		private In(List<Object> values) {
+			super(values);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$in";
+		}
+
+		public static InBuilder arrayOf(final String fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new InBuilder() {
+				@Override
+				public In containsValue(Object value) {
+
+					Assert.notNull(value, "Value must not be null!");
+					return new In(Arrays.asList(value, Fields.field(fieldReference)));
+				}
+			};
+		}
+
+		public static InBuilder arrayOf(final AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new InBuilder() {
+				@Override
+				public In containsValue(Object value) {
+
+					Assert.notNull(value, "Value must not be null!");
+					return new In(Arrays.asList(value, expression));
+				}
+			};
+		}
+
+		public interface InBuilder {
+			In containsValue(Object value);
+		}
+
 	}
 
 	// ############
