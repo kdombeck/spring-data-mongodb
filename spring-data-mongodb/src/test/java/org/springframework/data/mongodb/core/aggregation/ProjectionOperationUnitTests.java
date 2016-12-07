@@ -29,18 +29,23 @@ import java.util.List;
 import org.junit.Test;
 import org.springframework.data.domain.Range;
 import org.springframework.data.mongodb.core.DBObjectTestUtils;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.And;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.ArithmeticOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.ArrayOperators;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Avg;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.BooleanOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.ComparisonOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.ConditionalOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.DateOperators;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Gte;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.LiteralOperators;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Lt;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.RangeOperator;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Reduce.PropertyExpression;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Reduce.Variable;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.SetOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.StringOperators;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Switch.CaseOperator;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.VariableOperators;
 import org.springframework.data.mongodb.core.aggregation.ProjectionOperation.ProjectionOperationBuilder;
 
@@ -1955,7 +1960,7 @@ public class ProjectionOperationUnitTests {
 	 * @see DATAMONGO-1548
 	 */
 	@Test
-	public void shouldIsoDayOfWeekCorrectly() {
+	public void shouldRenderIsoDayOfWeekCorrectly() {
 
 		DBObject agg = project().and(DateOperators.dateOf("birthday").isoDayOfWeek()).as("dayOfWeek")
 				.toDBObject(Aggregation.DEFAULT_CONTEXT);
@@ -1967,7 +1972,7 @@ public class ProjectionOperationUnitTests {
 	 * @see DATAMONGO-1548
 	 */
 	@Test
-	public void shouldIsoWeekCorrectly() {
+	public void shouldRenderIsoWeekCorrectly() {
 
 		DBObject agg = project().and(DateOperators.dateOf("date").isoWeek()).as("weekNumber")
 				.toDBObject(Aggregation.DEFAULT_CONTEXT);
@@ -1979,12 +1984,53 @@ public class ProjectionOperationUnitTests {
 	 * @see DATAMONGO-1548
 	 */
 	@Test
-	public void shouldIsoWeekYearCorrectly() {
+	public void shouldRenderIsoWeekYearCorrectly() {
 
 		DBObject agg = project().and(DateOperators.dateOf("date").isoWeekYear()).as("yearNumber")
 				.toDBObject(Aggregation.DEFAULT_CONTEXT);
 
 		assertThat(agg, is(JSON.parse("{ $project : { yearNumber: { $isoWeekYear: \"$date\" } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderSwitchCorrectly() {
+
+		String expected = "$switch:\n" + //
+				"{\n" + //
+				"     branches: [\n" + //
+				"       {\n" + //
+				"         case: { $gte : [ { $avg : \"$scores\" }, 90 ] },\n" + //
+				"         then: \"Doing great!\"\n" + //
+				"       },\n" + //
+				"       {\n" + //
+				"         case: { $and : [ { $gte : [ { $avg : \"$scores\" }, 80 ] },\n" + //
+				"                          { $lt : [ { $avg : \"$scores\" }, 90 ] } ] },\n" + //
+				"         then: \"Doing pretty well.\"\n" + //
+				"       },\n" + //
+				"       {\n" + //
+				"         case: { $lt : [ { $avg : \"$scores\" }, 80 ] },\n" + //
+				"         then: \"Needs improvement.\"\n" + //
+				"       }\n" + //
+				"     ],\n" + //
+				"     default: \"No scores found.\"\n" + //
+				"   }\n" + //
+				"}";
+
+		CaseOperator cond1 = CaseOperator.when(Gte.valueOf(Avg.avgOf("scores")).greaterThanEqualToValue(90))
+				.then("Doing great!");
+		CaseOperator cond2 = CaseOperator.when(And.and(Gte.valueOf(Avg.avgOf("scores")).greaterThanEqualToValue(80),
+				Lt.valueOf(Avg.avgOf("scores")).lessThanValue(90))).then("Doing pretty well.");
+		CaseOperator cond3 = CaseOperator.when(Lt.valueOf(Avg.avgOf("scores")).lessThanValue(80))
+				.then("Needs improvement.");
+
+		DBObject agg = project().and(ConditionalOperators.switchCases(cond1, cond2, cond3).defaultTo("No scores found."))
+				.as("summary").toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		System.out.println("agg: " + agg);
+		assertThat(agg, is(JSON.parse("{ $project : { summary: {" + expected + "} } }")));
 	}
 
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {

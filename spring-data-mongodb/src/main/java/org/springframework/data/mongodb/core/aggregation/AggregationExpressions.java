@@ -27,6 +27,7 @@ import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Cond.ThenBuilder;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Filter.AsBuilder;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Reduce.PropertyExpression;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Switch.CaseOperator;
 import org.springframework.data.mongodb.core.aggregation.ExposedFields.ExposedField;
 import org.springframework.data.mongodb.core.aggregation.ExposedFields.FieldReference;
 import org.springframework.data.mongodb.core.query.CriteriaDefinition;
@@ -261,6 +262,30 @@ public interface AggregationExpressions {
 
 			Assert.notNull(expression, "Expression must not be null!");
 			return IfNull.ifNull(expression);
+		}
+
+		/**
+		 * Creates new {@link AggregationExpression} that evaluates a series of {@link CaseOperator} expressions. When it
+		 * finds an expression which evaluates to true, {@code $switch} executes a specified expression and breaks out of
+		 * the control flow.
+		 *
+		 * @param conditions must not be {@literal null}.
+		 * @return
+		 */
+		public static Switch switchCases(CaseOperator... conditions) {
+			return Switch.switchCases(conditions);
+		}
+
+		/**
+		 * Creates new {@link AggregationExpression} that evaluates a series of {@link CaseOperator} expressions. When it
+		 * finds an expression which evaluates to true, {@code $switch} executes a specified expression and breaks out of
+		 * the control flow.
+		 *
+		 * @param conditions must not be {@literal null}.
+		 * @return
+		 */
+		public static Switch switchCases(List<CaseOperator> conditions) {
+			return Switch.switchCases(conditions);
 		}
 
 		public static class ConditionalOperatorFactory {
@@ -8037,6 +8062,83 @@ public interface AggregationExpressions {
 
 				Assert.notNull(expression, "AggregationExpression must not be null!");
 				return new Cond(condition, thenValue, expression);
+			}
+		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $switch}.
+	 *
+	 * @author Christoph Strobl
+	 */
+	class Switch extends AbstractAggregationExpression {
+
+		private Switch(java.util.Map<String, Object> values) {
+			super(values);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$switch";
+		}
+
+		public static Switch switchCases(CaseOperator... conditions) {
+
+			Assert.notNull(conditions, "Conditions must not be null!");
+			return switchCases(Arrays.asList(conditions));
+		}
+
+		public static Switch switchCases(List<CaseOperator> conditions) {
+
+			Assert.notNull(conditions, "Conditions must not be null!");
+			return new Switch(Collections.<String, Object> singletonMap("branches", new ArrayList<CaseOperator>(conditions)));
+		}
+
+		public Switch defaultTo(Object value) {
+			return new Switch(append("default", value));
+		}
+
+		public static class CaseOperator implements AggregationExpression {
+
+			private final AggregationExpression when;
+			private final Object then;
+
+			private CaseOperator(AggregationExpression when, Object then) {
+
+				this.when = when;
+				this.then = then;
+			}
+
+			public static ThenBuilder when(final AggregationExpression condition) {
+
+				Assert.notNull(condition, "Condition must not be null!");
+				return new ThenBuilder() {
+					@Override
+					public CaseOperator then(Object value) {
+
+						Assert.notNull(value, "Value must not be null!");
+						return new CaseOperator(condition, value);
+					}
+				};
+			}
+
+			@Override
+			public DBObject toDbObject(AggregationOperationContext context) {
+				DBObject dbo = new BasicDBObject("case", when.toDbObject(context));
+
+				if (then instanceof AggregationExpression) {
+					dbo.put("then", ((AggregationExpression) then).toDbObject(context));
+				} else if (then instanceof Field) {
+					dbo.put("then", context.getReference((Field) then).toString());
+				} else {
+					dbo.put("then", then);
+				}
+
+				return dbo;
+			}
+
+			public interface ThenBuilder {
+				CaseOperator then(Object value);
 			}
 		}
 	}
