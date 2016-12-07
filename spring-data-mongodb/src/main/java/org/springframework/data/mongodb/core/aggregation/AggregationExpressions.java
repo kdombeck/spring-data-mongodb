@@ -2214,6 +2214,35 @@ public interface AggregationExpressions {
 						.toString(format);
 			}
 
+			/**
+			 * Creates new {@link AggregationExpressions} that returns the weekday number in ISO 8601 format, ranging from 1
+			 * (for Monday) to 7 (for Sunday).
+			 *
+			 * @return
+			 */
+			public IsoDayOfWeek isoDayOfWeek() {
+				return usesFieldRef() ? IsoDayOfWeek.isoDayOfWeek(fieldReference) : IsoDayOfWeek.isoDayOfWeek(expression);
+			}
+
+			/**
+			 * Creates new {@link AggregationExpressions} that returns the week number in ISO 8601 format, ranging from 1 to
+			 * 53.
+			 *
+			 * @return
+			 */
+			public IsoWeek isoWeek() {
+				return usesFieldRef() ? IsoWeek.isoWeekOf(fieldReference) : IsoWeek.isoWeekOf(expression);
+			}
+
+			/**
+			 * Creates new {@link AggregationExpressions} that returns the year number in ISO 8601 format.
+			 *
+			 * @return
+			 */
+			public IsoWeekYear isoWeekYear() {
+				return usesFieldRef() ? IsoWeekYear.isoWeekYearOf(fieldReference) : IsoWeekYear.isoWeekYearOf(expression);
+			}
+
 			private boolean usesFieldRef() {
 				return fieldReference != null;
 			}
@@ -5925,6 +5954,129 @@ public interface AggregationExpressions {
 			 * @return
 			 */
 			DateToString toString(String format);
+		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $isoDayOfWeek}.
+	 *
+	 * @author Christoph Strobl
+	 */
+	class IsoDayOfWeek extends AbstractAggregationExpression {
+
+		private IsoDayOfWeek(Object value) {
+			super(value);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$isoDayOfWeek";
+		}
+
+		/**
+		 * Creates new {@link IsoDayOfWeek}.
+		 *
+		 * @param fieldReference must not be {@literal null}.
+		 * @return
+		 */
+		public static IsoDayOfWeek isoDayOfWeek(String fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new IsoDayOfWeek(Fields.field(fieldReference));
+		}
+
+		/**
+		 * Creates new {@link IsoDayOfWeek}.
+		 *
+		 * @param expression must not be {@literal null}.
+		 * @return
+		 */
+		public static IsoDayOfWeek isoDayOfWeek(AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new IsoDayOfWeek(expression);
+		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $isoWeek}.
+	 *
+	 * @author Christoph Strobl
+	 */
+	class IsoWeek extends AbstractAggregationExpression {
+
+		private IsoWeek(Object value) {
+			super(value);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$isoWeek";
+		}
+
+		/**
+		 * Creates new {@link IsoWeek}.
+		 *
+		 * @param fieldReference must not be {@literal null}.
+		 * @return
+		 */
+		public static IsoWeek isoWeekOf(String fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new IsoWeek(Fields.field(fieldReference));
+		}
+
+		/**
+		 * Creates new {@link IsoWeek}.
+		 *
+		 * @param expression must not be {@literal null}.
+		 * @return
+		 */
+		public static IsoWeek isoWeekOf(AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new IsoWeek(expression);
+		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $isoWeekYear}.
+	 *
+	 * @author Christoph Strobl
+	 */
+	class IsoWeekYear extends AbstractAggregationExpression {
+
+		private IsoWeekYear(Object value) {
+			super(value);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$isoWeekYear";
+		}
+
+		/**
+		 * Creates new {@link IsoWeekYear}.
+		 *
+		 * @param fieldReference must not be {@literal null}.
+		 * @return
+		 */
+		public static IsoWeekYear isoWeekYearOf(String fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new IsoWeekYear(Fields.field(fieldReference));
+		}
+
+		/**
+		 * Creates new {@link Millisecond}.
+		 *
+		 * @param expression must not be {@literal null}.
+		 * @return
+		 */
+		public static IsoWeekYear isoWeekYearOf(AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new IsoWeekYear(expression);
 		}
 	}
 

@@ -1951,6 +1951,42 @@ public class ProjectionOperationUnitTests {
 		assertThat(agg, is(JSON.parse("{ $project : { has_bananas : { $in : [\"bananas\", \"$in_stock\" ] } } }")));
 	}
 
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldIsoDayOfWeekCorrectly() {
+
+		DBObject agg = project().and(DateOperators.dateOf("birthday").isoDayOfWeek()).as("dayOfWeek")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse("{ $project : { dayOfWeek: { $isoDayOfWeek: \"$birthday\" } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldIsoWeekCorrectly() {
+
+		DBObject agg = project().and(DateOperators.dateOf("date").isoWeek()).as("weekNumber")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse("{ $project : { weekNumber: { $isoWeek: \"$date\" } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldIsoWeekYearCorrectly() {
+
+		DBObject agg = project().and(DateOperators.dateOf("date").isoWeekYear()).as("yearNumber")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse("{ $project : { yearNumber: { $isoWeekYear: \"$date\" } } }")));
+	}
+
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {
 		return (DBObject) fromProjectClause.get(field);
 	}
