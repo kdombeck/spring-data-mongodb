@@ -1966,6 +1966,18 @@ public interface AggregationExpressions {
 				};
 			}
 
+			/**
+			 * Creates new {@link AggregationExpressions} that transposes an array of input arrays so that the first element
+			 * of the output array would be an array containing, the first element of the first input array, the first element
+			 * of the second input array, etc
+			 *
+			 * @param arrays must not be {@literal null}.
+			 * @return
+			 */
+			public Zip zipWith(Object... arrays) {
+				return (usesFieldRef() ? Zip.arrayOf(fieldReference) : Zip.arrayOf(expression)).zip(arrays);
+			}
+
 			public interface ReduceInitialValueBuilder {
 				Reduce startingWith(Object initialValue);
 			}
@@ -2289,6 +2301,17 @@ public interface AggregationExpressions {
 				return context.getReference((Field) value).toString();
 			}
 
+			if (value instanceof List) {
+
+				List<Object> sourceList = (List<Object>) value;
+				List<Object> mappedList = new ArrayList<Object>(sourceList.size());
+
+				for (Object item : sourceList) {
+					mappedList.add(unpack(item, context));
+				}
+				return mappedList;
+			}
+
 			return value;
 		}
 
@@ -2311,12 +2334,12 @@ public interface AggregationExpressions {
 			return Arrays.asList(this.value, value);
 		}
 
-		protected Object append(String key, Object value) {
+		protected java.util.Map<String, Object> append(String key, Object value) {
 
-			if (!(value instanceof java.util.Map)) {
+			if (!(this.value instanceof java.util.Map)) {
 				throw new IllegalArgumentException("o_O");
 			}
-			java.util.Map<String, Object> clone = new LinkedHashMap<String, Object>((java.util.Map<String, Object>) value);
+			java.util.Map<String, Object> clone = new LinkedHashMap<String, Object>((java.util.Map<String, Object>) this.value);
 			clone.put(key, value);
 			return clone;
 
@@ -5207,6 +5230,124 @@ public interface AggregationExpressions {
 						return getName();
 					}
 				};
+			}
+		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $zip}.
+	 */
+	class Zip extends AbstractAggregationExpression {
+
+		protected Zip(java.util.Map<String, Object> value) {
+			super(value);
+		}
+
+		@Override
+		protected String getMongoMethod() {
+			return "$zip";
+		}
+
+		/**
+		 * Start creating new {@link Zip}.
+		 *
+		 * @param fieldReference must not be {@literal null}.
+		 * @return
+		 */
+		public static ZipBuilder arrayOf(String fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new ZipBuilder(Fields.field(fieldReference));
+		}
+
+		/**
+		 * Start creating new {@link Zip}.
+		 *
+		 * @param expression must not be {@literal null}.
+		 * @return
+		 */
+		public static ZipBuilder arrayOf(AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new ZipBuilder(expression);
+		}
+
+		/**
+		 * Create new {@link Zip} and set the {@code useLongestLength} property to {@literal true}.
+		 *
+		 * @return
+		 */
+		public Zip useLongestLength() {
+			return new Zip(append("useLongestLength", true));
+		}
+
+		/**
+		 * Optionally provide a default value.
+		 *
+		 * @param fieldReference must not be {@literal null}.
+		 * @return
+		 */
+		public Zip defaultTo(String fieldReference) {
+
+			Assert.notNull(fieldReference, "FieldReference must not be null!");
+			return new Zip(append("defaults", Fields.field(fieldReference)));
+		}
+
+		/**
+		 * Optionally provide a default value.
+		 *
+		 * @param expression must not be {@literal null}.
+		 * @return
+		 */
+		public Zip defaultTo(AggregationExpression expression) {
+
+			Assert.notNull(expression, "Expression must not be null!");
+			return new Zip(append("defaults", expression));
+		}
+
+		/**
+		 * Optionally provide a default value.
+		 *
+		 * @param array must not be {@literal null}.
+		 * @return
+		 */
+		public Zip defaultTo(Object[] array) {
+
+			Assert.notNull(array, "Array must not be null!");
+			return new Zip(append("defaults", array));
+		}
+
+		public static class ZipBuilder {
+
+			private final List<Object> sourceArrays;
+
+			public ZipBuilder(Object sourceArray) {
+
+				this.sourceArrays = new ArrayList<Object>();
+				this.sourceArrays.add(sourceArray);
+			}
+
+			/**
+			 * Creates new {@link Zip} that transposes an array of input arrays so that the first element
+			 * of the output array would be an array containing, the first element of the first input array, the first element
+			 * of the second input array, etc
+			 *
+			 * @param arrays arrays to zip the referenced one with. must not be {@literal null}.
+			 * @return
+			 */
+			public Zip zip(Object... arrays) {
+
+				Assert.notNull(arrays, "Arrays must not be null!");
+				for (Object value : arrays) {
+
+					if (value instanceof String) {
+						sourceArrays.add(Fields.field((String) value));
+					} else {
+						sourceArrays.add(value);
+					}
+				}
+
+				return new Zip(Collections.<String, Object> singletonMap("inputs", sourceArrays));
 			}
 		}
 	}

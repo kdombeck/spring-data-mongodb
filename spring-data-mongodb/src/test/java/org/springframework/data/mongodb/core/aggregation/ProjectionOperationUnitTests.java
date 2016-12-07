@@ -1917,9 +1917,25 @@ public class ProjectionOperationUnitTests {
 						.startingWith(new BasicDBObjectBuilder().add("sum", 5).add("product", 2).get()))
 				.as("results").toDBObject(Aggregation.DEFAULT_CONTEXT);
 
-		System.out.println("agg: " + agg);
 		assertThat(agg, is(JSON.parse(
 				"{ $project : { \"results\": { $reduce: { input: \"$probabilityArr\", initialValue:  { \"sum\" : 5 , \"product\" : 2} , in: { \"sum\": { $add : [\"$$value.sum\", \"$$this\"] }, \"product\": { $multiply: [ \"$$value.product\", \"$$this\" ] } } } } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderZipCorrectly() {
+
+		AggregationExpression elemAt0 = ArrayOperators.arrayOf("matrix").elementAt(0);
+		AggregationExpression elemAt1 = ArrayOperators.arrayOf("matrix").elementAt(1);
+		AggregationExpression elemAt2 = ArrayOperators.arrayOf("matrix").elementAt(2);
+
+		DBObject agg = project().and(ArrayOperators.arrayOf(elemAt0).zipWith(elemAt1, elemAt2).useLongestLength().defaultTo(new Object[]{1,2})).as("transposed")
+				.toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse(
+				"{ $project : {  transposed: { $zip: { inputs: [ { $arrayElemAt: [ \"$matrix\", 0 ] }, { $arrayElemAt: [ \"$matrix\", 1 ] }, { $arrayElemAt: [ \"$matrix\", 2 ] } ], useLongestLength : true, defaults: [1,2] } } } }")));
 	}
 
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {
