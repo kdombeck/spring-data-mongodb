@@ -37,12 +37,15 @@ import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.DateOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.LiteralOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.RangeOperator;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Reduce.PropertyExpression;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Reduce.Variable;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.SetOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.StringOperators;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.VariableOperators;
 import org.springframework.data.mongodb.core.aggregation.ProjectionOperation.ProjectionOperationBuilder;
 
 import com.mongodb.BasicDBObject;
+import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
 import com.mongodb.util.JSON;
 
@@ -1881,6 +1884,42 @@ public class ProjectionOperationUnitTests {
 				.toDBObject(Aggregation.DEFAULT_CONTEXT);
 
 		assertThat(agg, is(JSON.parse("{ $project : { reverseFavorites: { $reverseArray: \"$favorites\" } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderReduceWithSimpleObjectCorrectly() {
+
+		DBObject agg = project()
+				.and(ArrayOperators.arrayOf("probabilityArr")
+						.reduce(ArithmeticOperators.valueOf("$$value").multiplyBy("$$this")).startingWith(1))
+				.as("results").toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		assertThat(agg, is(JSON.parse(
+				"{ $project : { \"results\": { $reduce: { input: \"$probabilityArr\", initialValue: 1, in: { $multiply: [ \"$$value\", \"$$this\" ] } } } } }")));
+	}
+
+	/**
+	 * @see DATAMONGO-1548
+	 */
+	@Test
+	public void shouldRenderReduceWithComplexObjectCorrectly() {
+
+		PropertyExpression sum = PropertyExpression.property("sum").definedAs(
+				ArithmeticOperators.valueOf(Variable.VALUE.referingTo("sum").getName()).add(Variable.THIS.getName()));
+		PropertyExpression product = PropertyExpression.property("product").definedAs(ArithmeticOperators
+				.valueOf(Variable.VALUE.referingTo("product").getName()).multiplyBy(Variable.THIS.getName()));
+
+		DBObject agg = project()
+				.and(ArrayOperators.arrayOf("probabilityArr").reduce(sum, product)
+						.startingWith(new BasicDBObjectBuilder().add("sum", 5).add("product", 2).get()))
+				.as("results").toDBObject(Aggregation.DEFAULT_CONTEXT);
+
+		System.out.println("agg: " + agg);
+		assertThat(agg, is(JSON.parse(
+				"{ $project : { \"results\": { $reduce: { input: \"$probabilityArr\", initialValue:  { \"sum\" : 5 , \"product\" : 2} , in: { \"sum\": { $add : [\"$$value.sum\", \"$$this\"] }, \"product\": { $multiply: [ \"$$value.product\", \"$$this\" ] } } } } } }")));
 	}
 
 	private static DBObject exctractOperation(String field, DBObject fromProjectClause) {

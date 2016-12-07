@@ -26,6 +26,7 @@ import org.springframework.data.domain.Range;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Cond.OtherwiseBuilder;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Cond.ThenBuilder;
 import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Filter.AsBuilder;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpressions.Reduce.PropertyExpression;
 import org.springframework.data.mongodb.core.aggregation.ExposedFields.ExposedField;
 import org.springframework.data.mongodb.core.aggregation.ExposedFields.FieldReference;
 import org.springframework.data.mongodb.core.query.CriteriaDefinition;
@@ -1928,6 +1929,45 @@ public interface AggregationExpressions {
 			 */
 			public ReverseArray reverse() {
 				return usesFieldRef() ? ReverseArray.reverseArrayOf(fieldReference) : ReverseArray.reverseArrayOf(expression);
+			}
+
+			/**
+			 * Start creating new {@link AggregationExpressions} that applies an {@link AggregationExpression} to each element
+			 * in an array and combines them into a single value.
+			 *
+			 * @param expression must not be {@literal null}.
+			 * @return
+			 */
+			public ReduceInitialValueBuilder reduce(final AggregationExpression expression) {
+				return new ReduceInitialValueBuilder() {
+					@Override
+					public Reduce startingWith(Object initialValue) {
+						return (usesFieldRef() ? Reduce.arrayOf(fieldReference) : Reduce.arrayOf(expression))
+								.withInitialValue(initialValue).reduce(expression);
+					}
+				};
+			}
+
+			/**
+			 * Start creating new {@link AggregationExpressions} that applies an {@link AggregationExpression} to each element
+			 * in an array and combines them into a single value.
+			 *
+			 * @param expressions
+			 * @return
+			 */
+			public ReduceInitialValueBuilder reduce(final PropertyExpression... expressions) {
+
+				return new ReduceInitialValueBuilder() {
+					@Override
+					public Reduce startingWith(Object initialValue) {
+						return (usesFieldRef() ? Reduce.arrayOf(fieldReference) : Reduce.arrayOf(expression))
+								.withInitialValue(initialValue).reduce(expressions);
+					}
+				};
+			}
+
+			public interface ReduceInitialValueBuilder {
+				Reduce startingWith(Object initialValue);
 			}
 
 			private boolean usesFieldRef() {
@@ -4917,6 +4957,257 @@ public interface AggregationExpressions {
 
 		public static ReverseArray reverseArrayOf(AggregationExpression expression) {
 			return new ReverseArray(expression);
+		}
+	}
+
+	/**
+	 * {@link AggregationExpression} for {@code $reduce}.
+	 */
+	class Reduce implements AggregationExpression {
+
+		private final Object input;
+		private final Object initialValue;
+		private final List<AggregationExpression> reduceExpressions;
+
+		private Reduce(Object input, Object initialValue, List<AggregationExpression> reduceExpressions) {
+			this.input = input;
+			this.initialValue = initialValue;
+			this.reduceExpressions = reduceExpressions;
+		}
+
+		@Override
+		public DBObject toDbObject(AggregationOperationContext context) {
+
+			DBObject dbo = new BasicDBObject();
+
+			dbo.put("input", getMappedValue(input, context));
+			dbo.put("initialValue", getMappedValue(initialValue, context));
+
+			if (reduceExpressions.iterator().next() instanceof PropertyExpression) {
+
+				DBObject properties = new BasicDBObject();
+				for (AggregationExpression e : reduceExpressions) {
+					properties.putAll(e.toDbObject(context));
+				}
+				dbo.put("in", properties);
+			} else {
+				dbo.put("in", (reduceExpressions.iterator().next()).toDbObject(context));
+			}
+
+			return new BasicDBObject("$reduce", dbo);
+		}
+
+		private Object getMappedValue(Object value, AggregationOperationContext context) {
+
+			if (value instanceof DBObject) {
+				return value;
+			}
+			if (value instanceof AggregationExpression) {
+				return ((AggregationExpression) value).toDbObject(context);
+			} else if (value instanceof Field) {
+				return context.getReference(((Field) value)).toString();
+			} else {
+				return context.getMappedObject(new BasicDBObject("###val###", value)).get("###val###");
+			}
+		}
+
+		public static InitialValueBuilder arrayOf(final String fieldReference) {
+			return new InitialValueBuilder() {
+
+				@Override
+				public ReduceBuilder withInitialValue(final Object initialValue) {
+					return new ReduceBuilder() {
+						@Override
+						public Reduce reduce(AggregationExpression expression) {
+							return new Reduce(Fields.field(fieldReference), initialValue, Collections.singletonList(expression));
+						}
+
+						@Override
+						public Reduce reduce(PropertyExpression... expressions) {
+							return new Reduce(Fields.field(fieldReference), initialValue,
+									Arrays.<AggregationExpression> asList(expressions));
+						}
+					};
+				}
+			};
+		}
+
+		public static InitialValueBuilder arrayOf(final AggregationExpression expression) {
+			return new InitialValueBuilder() {
+
+				@Override
+				public ReduceBuilder withInitialValue(final Object initialValue) {
+					return new ReduceBuilder() {
+						@Override
+						public Reduce reduce(AggregationExpression expression) {
+							return new Reduce(expression, initialValue, Collections.singletonList(expression));
+						}
+
+						@Override
+						public Reduce reduce(PropertyExpression... expressions) {
+							return new Reduce(expression, initialValue, Arrays.<AggregationExpression> asList(expressions));
+						}
+					};
+				}
+			};
+		}
+
+		public interface InitialValueBuilder {
+
+			/**
+			 * Define the initial cumulative value set before in is applied to the first element of the input array.
+			 *
+			 * @param intialValue must not be {@literal null}.
+			 * @return
+			 */
+			ReduceBuilder withInitialValue(Object intialValue);
+		}
+
+		public interface ReduceBuilder {
+
+			/**
+			 * Define the {@link AggregationExpression} to apply to each element in the input array in left-to-right order.
+			 * <br />
+			 * <b>NOTE:</b> During evaulation of the in expression the variable references {@link Variable#THIS} and
+			 * {@link Variable#VALUE} are availble.
+			 *
+			 * @param expression must not be {@literal null}.
+			 * @return
+			 */
+			Reduce reduce(AggregationExpression expression);
+
+			/**
+			 * Define the {@link PropertyExpression}s to apply to each element in the input array in left-to-right order.
+			 * <br />
+			 * <b>NOTE:</b> During evaulation of the in expression the variable references {@link Variable#THIS} and
+			 * {@link Variable#VALUE} are availble.
+			 *
+			 * @param expression must not be {@literal null}.
+			 * @return
+			 */
+			Reduce reduce(PropertyExpression... expressions);
+		}
+
+		/**
+		 * @author Christoph Strobl
+		 */
+		public static class PropertyExpression implements AggregationExpression {
+
+			private final String propertyName;
+			private final AggregationExpression aggregationExpression;
+
+			public PropertyExpression(String propertyName, AggregationExpression aggregationExpression) {
+				this.propertyName = propertyName;
+				this.aggregationExpression = aggregationExpression;
+			}
+
+			/**
+			 * Define a result property for an {@link AggregationExpression} used in {@link Reduce}.
+			 *
+			 * @param name must not be {@literal null}.
+			 * @return
+			 */
+			public static AsBuilder property(final String name) {
+				return new AsBuilder() {
+					@Override
+					public PropertyExpression definedAs(AggregationExpression expression) {
+						return new PropertyExpression(name, expression);
+					}
+				};
+			}
+
+			@Override
+			public DBObject toDbObject(AggregationOperationContext context) {
+				return new BasicDBObject(propertyName, aggregationExpression.toDbObject(context));
+			}
+
+			interface AsBuilder {
+
+				/**
+				 * Set the {@link AggregationExpression} resulting in the properties value.
+				 *
+				 * @param expression must not be {@literal null}.
+				 * @return
+				 */
+				PropertyExpression definedAs(AggregationExpression expression);
+			}
+		}
+
+		public enum Variable implements Field {
+			THIS {
+				@Override
+				public String getName() {
+					return "$$this";
+				}
+
+				@Override
+				public String getTarget() {
+					return "$$this";
+				}
+
+				@Override
+				public boolean isAliased() {
+					return false;
+				}
+
+				@Override
+				public String toString() {
+					return getName();
+				}
+			},
+			VALUE {
+				@Override
+				public String getName() {
+					return "$$value";
+				}
+
+				@Override
+				public String getTarget() {
+					return "$$value";
+				}
+
+				@Override
+				public boolean isAliased() {
+					return false;
+				}
+
+				@Override
+				public String toString() {
+					return getName();
+				}
+			};
+
+			/**
+			 * Create a {@link Field} reference to a given {@literal property} prefixed with the {@link Variable} identifier.
+			 * eg. {@code $$value.product}
+			 *
+			 * @param property must not be {@literal null}.
+			 * @return
+			 */
+			public Field referingTo(final String property) {
+
+				return new Field() {
+					@Override
+					public String getName() {
+						return Variable.this.getName() + "." + property;
+					}
+
+					@Override
+					public String getTarget() {
+						return Variable.this.getTarget() + "." + property;
+					}
+
+					@Override
+					public boolean isAliased() {
+						return false;
+					}
+
+					@Override
+					public String toString() {
+						return getName();
+					}
+				};
+			}
 		}
 	}
 
